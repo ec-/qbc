@@ -38,10 +38,16 @@ static const unsigned char pmod[2][256] = {
 	242,243,244,245,246,247,248,249,250,251,252,253,254,255,255,255
 } };
 
+// probability range, hardcoded
 #define PR_BITS 8
 
+// default probability
+#define DEF_PROB ((1<<PR_BITS)/2) 
+
+//renormalization thershold
 #define RENORM_THRES  (1<<((32-PR_BITS)/2))
 
+// range split function
 #define MID_FUNC(LO,HI,PR) ( (LO) + ( ( ((HI)-(LO)) * ((PR)) ) >> (PR_BITS) ) )
 
 class qbc {
@@ -51,6 +57,7 @@ private:
 	unsigned int range[2]; // [low,high]
 	unsigned int code;
 	unsigned char prob[ 1 << PR_BITS ];
+
 	unsigned char *bufPtr;
 	unsigned char *bufBase;
 	int bufLen;
@@ -58,9 +65,7 @@ private:
 	void init_probs() {
 
 		// initialize default bit context probabilities
-		for ( int i = 0; i < (1<<PR_BITS); ++i ) {
-			prob[i] = ((1<<PR_BITS)/2);
-		}
+		memset( prob, DEF_PROB, sizeof( prob ) );
 
 		code = 0x0;
 
@@ -114,7 +119,7 @@ public:
 	int encode_byte( const unsigned char value ) {
 		int offset = 1; // initial context offset
 
-		for ( int i = 7; i >= 0; --i ) {
+		for ( int i = 8-1; i >= 0; --i ) {
 			const unsigned int split = MID_FUNC( range[0], range[1], prob[ offset ] );
 			const int bit = (value >> i) & 1;
 
@@ -122,7 +127,7 @@ public:
 
 			 // entropy prediction
 			prob[offset] = pmod[bit][prob[offset]];
-    
+
 			// renormalization
 			if ( ( range[0] ^ range[1] ) < RENORM_THRES ) {
 				if ( bufLen > 0 ) {
@@ -137,7 +142,6 @@ public:
 			// offset context
 			offset += offset + bit;
 		}
-
 		return value;
 	}
 
@@ -154,7 +158,7 @@ public:
 	int encode_flush() {
 		for ( int i = 0; i < 4 && bufLen > 0; ++i ) {
 			if ( bufLen > 0 ) {
-    			*bufPtr++ = range[0] >> 24; --bufLen;
+				*bufPtr++ = range[0] >> 24; --bufLen;
 			} else {
 				return -1; // encode stream overrun
 			}
@@ -185,7 +189,7 @@ public:
 				return -1; // decode stream overrun
 			}
 			range[1] = ( range[1] << 8 ) | 255;
-   			range[0] <<= 8;
+			range[0] <<= 8;
 		}
 
 		return bit;
@@ -195,7 +199,7 @@ public:
 		int value = 0;
 		int offset = 1; // initial context offset
 
-		for ( int i = 7; i >= 0; --i ) {
+		for ( int i = 8-1; i >= 0; --i ) {
 			const unsigned int split = MID_FUNC( range[0], range[1], prob[offset] );
 			const int bit = ( code <= split ? 1 : 0 );
 

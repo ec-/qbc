@@ -12,5 +12,3 @@ Some comparisons with `Huff_` functions:
 - compression rate is about 10% better
 - encode/decode speed is about 20% faster
 - memory usage is more than 50 times lower (<1k vs ~50k)
-
-Implemented as a single cpp source file for easier integration/testing
